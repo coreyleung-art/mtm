@@ -19,12 +19,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Push to Gitee
+      - name: Push to Gitee (★ 安全同步：非 force，领先则拒绝覆盖)
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
           if [ -z "$GITEE_TOKEN" ]; then
-            echo "::error::GITEE_TOKEN secret 未配置，请在仓库 Settings → Secrets and variables → Actions 中添加"
+            echo "::error::GITEE_TOKEN secret 未配置"
             exit 1
           fi
-          git push --force "https://coreyleung:${GITEE_TOKEN}@gitee.com/coreyleung/mtm.git" main:main
+          URL="https://coreyleung:${GITEE_TOKEN}@gitee.com/coreyleung/mtm.git"
+          git fetch "$URL" main:refs/remotes/gitee-sync/main || true
+          # ★ 若 Gitee 领先（有人直推过 Gitee），拒绝覆盖 —— 这是期望行为，不静默销毁对方提交
+          if git rev-parse --verify gitee-sync/main >/dev/null 2>&1; then
+            if ! git merge-base --is-ancestor gitee-sync/main HEAD; then
+              echo "::error::Gitee 领先于 GitHub —— 检测到 Gitee 上有 GitHub 没有的提交。"
+              echo "::error::已拒绝覆盖（旧版用 --force 会静默销毁这些提交）。"
+              echo "::error::请先 fetch Gitee 并合并到 GitHub 后再推送。"
+              git log --oneline HEAD..gitee-sync/main | head -20 || true
+              exit 1
+            fi
+          fi
+          git push "$URL" main:main
