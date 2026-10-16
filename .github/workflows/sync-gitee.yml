@@ -1,0 +1,30 @@
+name: Sync to Gitee
+
+# GitHub → Gitee 自动同步镜像：
+# 每次 push 到 main 后，自动把仓库推送到 gitee.com/coreyleung/openchronicle
+# 需要仓库 Secrets 配置 GITEE_TOKEN（Gitee 私人令牌，可只勾选 projects 权限）
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Mirror main to Gitee
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "::error::GITEE_TOKEN secret 未配置，请在仓库 Settings → Secrets and variables → Actions 中添加"
+            exit 1
+          fi
+          git push --force "https://coreyleung:${GITEE_TOKEN}@gitee.com/coreyleung/mtm.git" main:main
